@@ -350,8 +350,11 @@ struct TileContainerView: View {
             }
 
             if tile.id == "divider:trailing" {
-                result.append(tile)
-                result.append(contentsOf: previewTrailingSectionTiles)
+                let trailingSectionTiles = previewTrailingSectionTiles
+                if !trailingSectionTiles.isEmpty || Self.keepsEmptyTrailingDivider {
+                    result.append(tile)
+                }
+                result.append(contentsOf: trailingSectionTiles)
                 appendedTrailingSection = true
                 continue
             }
@@ -2052,6 +2055,26 @@ struct TileContainerView: View {
         let width = sizes.reduce(CGFloat(0)) { $0 + $1.width } + spacings + edgePadding * 2
         let height = sizes.map(\.height).max() ?? tileHeight
         return CGSize(width: width, height: height)
+    }
+
+    /// Whether `divider:trailing` stays visible with nothing after it.
+    /// Shelve mode can hide Trash and leave the trailing section empty, so
+    /// the divider would dangle after the last tile. Keep it only while
+    /// editing or during an external drag, when it's the sole drop target
+    /// for an empty trailing section (issue #13).
+    private static var keepsEmptyTrailingDivider: Bool {
+        DockEditModeService.shared.isActive || DockDragService.shared.kind != nil
+    }
+
+    /// Tile list without a trailing `divider:trailing` that nothing follows,
+    /// unless it's still needed as a drop target. Used by MainWindow so its
+    /// sizing matches `displayTiles`.
+    static func removingEmptyTrailingDivider(from tiles: [Tile]) -> [Tile] {
+        guard !keepsEmptyTrailingDivider,
+              tiles.last?.id == "divider:trailing" else {
+            return tiles
+        }
+        return Array(tiles.dropLast())
     }
 
     static func previewedTiles(
